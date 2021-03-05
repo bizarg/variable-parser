@@ -17,7 +17,7 @@ class VariableParser
     /**
      * @var array
      */
-    protected array $variables = [];
+    private array $variables = [];
     /**
      * @var string|null
      */
@@ -25,11 +25,11 @@ class VariableParser
     /**
      * @var string
      */
-    protected string $signOpen = '[[';
+    protected string $signOpen = '';
     /**
      * @var string
      */
-    protected string $signClose = ']]';
+    protected string $signClose = '';
     /**
      * @var bool
      */
@@ -37,35 +37,63 @@ class VariableParser
     /**
      * @var array
      */
-    protected array $search = [];
+    private array $search = [];
     /**
      * @var Config
      */
     private Config $config;
+    /**
+     * @var mixed
+     */
+    private $variableData;
 
     /**
      * VariableParser constructor.
+     * @param string $content
+     * @param mixed $variableData
      */
-    public function __construct()
+    public function __construct(string $content, $variableData)
     {
         $this->config = new Config();
         $this->setSignOpen($this->config->signOpen());
         $this->setSignClose($this->config->signClose());
+        $this->content = $content;
+        $this->variableData = $variableData;
     }
 
     /**
-     * @return $this
+     * @return self
      */
     private function prepareVariables(): self
     {
         foreach ($this->variables as $key => $value) {
-            if (!$class = $this->defineVariableClass($value)) {
-                continue;
+            if ($class = $this->defineVariableClass($value)) {
+                $this->variables[$value] = $this->preview() ? $class->preview() : $class->handle();
             }
 
-            $this->variables[$value] = $this->preview() ? $class->preview() : $class->handle();
+            if (!$class) {
+                $this->variables[$value] = $this->data()[$value] ?? null;
+            }
+
             unset($this->variables[$key]);
         }
+        return $this;
+    }
+
+    /**
+     * @return self
+     */
+    private function variablesFromContent(): self
+    {
+        $regExp = '\\' . join('\\', str_split($this->signOpen()))
+            . '([a-zA-z\.]{1,})'
+            . '\\' . join('\\', str_split($this->signClose()));
+
+        preg_match_all("/$regExp/", $this->content(), $matches);
+
+        $this->search = $matches[0];
+        $this->variables = $matches[1];
+
         return $this;
     }
 
@@ -74,20 +102,11 @@ class VariableParser
      */
     public function parseContent(): ?string
     {
-        $this->prepareVariables()->mergeVariable()->replaceVariables();
-        return $this->content();
-    }
-
-    /**
-     * @return $this
-     */
-    private function prepareSearchData(): self
-    {
-        $this->search = array_map(function ($str) {
-            return $this->signOpen . $str . $this->signClose;
-        }, array_keys($this->variables));
-
-        return $this;
+        return $this->variablesFromContent()
+            ->prepareVariables()
+            ->mergeVariableWithData()
+            ->replaceVariables()
+            ->content();
     }
 
     /**
@@ -97,25 +116,24 @@ class VariableParser
     private function defineVariableClass(string $name): ?VariableInterface
     {
         if (class_exists($className = $this->config->path() . StringHelper::upperCaseCamelCase($name))) {
-            return new $className($this);
+            return new $className($this->variableData);
         }
         return null;
     }
 
     /**
-     * @return $this
+     * @return self
      */
     private function replaceVariables(): self
     {
-        $this->prepareSearchData()
-            ->setContent(str_replace($this->search(), array_values($this->variables), $this->content()));
+        $this->setContent(str_replace($this->search, array_values($this->variables), $this->content()));
         return $this;
     }
 
     /**
-     * @return $this
+     * @return self
      */
-    private function mergeVariable(): self
+    private function mergeVariableWithData(): self
     {
         $this->variables = array_merge($this->variables, $this->data);
         return $this;
