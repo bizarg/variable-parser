@@ -32,5 +32,5 @@ $parser->setData(['userName' => 'White Wolf']);
 $parser->setSignOpen('{{');
 $parser->setSignClose('}}');
 $parser->setPreview(true);
-$parser->
+$parser->setContent('Name: [[user.Name]]<br>');
 ```

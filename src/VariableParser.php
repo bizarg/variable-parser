@@ -43,16 +43,16 @@ class VariableParser
      */
     private Config $config;
     /**
-     * @var mixed
+     * @var mixed|null
      */
-    private $variableData;
+    private $variableData = null;
 
     /**
      * VariableParser constructor.
      * @param string $content
      * @param mixed $variableData
      */
-    public function __construct(string $content, $variableData)
+    public function __construct(string $content, $variableData = null)
     {
         $this->config = new Config();
         $this->setSignOpen($this->config->signOpen());
