@@ -1,7 +1,7 @@
 {
     "name": "bizarg/variable-parser",
     "description": "variable parser",
-    "version": "1.1",
+    "version": "1.1.1",
     "minimum-stability": "dev",
     "license": "MIT",
     "authors": [
@@ -12,7 +12,8 @@
     ],
     "require": {
         "php": ">=7.2",
-        "bizarg/string-helper": "dev-main"
+        "bizarg/string-helper": "dev-main",
+        "illuminate/support": "^6.0|^7.0|^8.0"
     },
     "autoload": {
         "psr-4": {
