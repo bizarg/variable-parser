@@ -8,29 +8,38 @@ php artisan vendor:publish --tag=variable-parser-config
 return [
     'path' => '', // Path to variables
     'signOpen' => '[[',
-    'signClose' => ']]'
+    'signClose' => ']]',
+    'variableFrom' => [
+        'class' => false,
+        'relation' => true
+    ]
 ];
 ```
 
 ```PHP
 use Bizarg\VariableParser\VariableParser;
 
-$variableData = [
-    'userName' => 'White Wolf'
-];
+$variableData = ['user' => User::find(1)]; /*or*/  (new VariableData())->setUser(User::find(1));
 
-//or
+$content = 'Name: [[user.name]]<br>
+    Email: [[user.email]]<br>
+    Title: [[article.title]]<br>
+    Custom: [[custom]]<br>
+    Slug: [[article.slug]]<br>';
 
-$variableData = (new VariableData())->setUser($user);
+$parser = new VariableParser();
+$parser->setContent($content);//string
+$parser->setVariableData($variableData);//array|object
+$content = $parser->parseContent();
 
-$content = 'Name: [[user.Name]]<br>Email: [[userEmail]]<br>Title: [[articleTitle]]<br>Slug: [[articleSlug]]<br>';
+$content = (new VariableParser($content, $variableData))->parseContent();
 
-$parser = new VariableParser($content, $variableData);
-$parser->parseContent();
-
-$parser->setData(['userName' => 'White Wolf']);
+$parser->setData([
+    'user.name' => 'White Wolf',
+    'custom' => 'value',
+]);
 $parser->setSignOpen('{{');
 $parser->setSignClose('}}');
-$parser->setPreview(true);
-$parser->setContent('Name: [[user.Name]]<br>');
+$parser->setPreview(true);// if used class
+$parser->setContent('Name: [[user.name]]<br>');
 ```

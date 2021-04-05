@@ -46,6 +46,22 @@ class Config
     }
 
     /**
+     * @return false|mixed
+     */
+    public function variableFromClass(): bool
+    {
+        return $this->config['variableFrom']['class'] ?? false;
+    }
+
+    /**
+     * @return false|mixed
+     */
+    public function variableFromRelation(): bool
+    {
+        return $this->config['variableFrom']['relation'] ?? false;
+    }
+
+    /**
      * @param string|null $string
      * @return string
      */

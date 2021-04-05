@@ -3,6 +3,7 @@
 namespace Bizarg\VariableParser;
 
 use Bizarg\StringHelper\StringHelper;
+use Illuminate\Support\Collection;
 
 /**
  * Class VariableParser
@@ -49,10 +50,10 @@ class VariableParser
 
     /**
      * VariableParser constructor.
-     * @param string $content
-     * @param mixed $variableData
+     * @param string|null $content
+     * @param object|array|null $variableData
      */
-    public function __construct(string $content, $variableData = null)
+    public function __construct(?string $content = null, $variableData = null)
     {
         $this->config = new Config();
         $this->setSignOpen($this->config->signOpen());
@@ -67,17 +68,50 @@ class VariableParser
     private function prepareVariables(): self
     {
         foreach ($this->variables as $key => $value) {
-            if ($class = $this->defineVariableClass($value)) {
+            $class = $object = null;
+
+            if ($this->config->variableFromClass() && $class = $this->defineVariableClass($value)) {
                 $this->variables[$value] = $this->preview() ? $class->preview() : $class->handle();
             }
 
-            if (!$class) {
-                $this->variables[$value] = $this->data()[$value] ?? null;
+            if ($this->config->variableFromRelation() && !$class) {
+                $collection = collect(explode('.', $value));
+
+                $field = $collection->shift();
+
+                if (is_object($this->variableData) && method_exists($this->variableData, $field)) {
+                    $object = $this->variableData->{$field}();
+                }
+
+                if (is_array($this->variableData) && isset($this->variableData[$field])) {
+                    $object = $this->variableData[$field];
+                }
+
+                if (is_object($object)) {
+                    $this->variables[$value] = $this->getProperty($object, $collection);
+                }
             }
 
             unset($this->variables[$key]);
         }
+
         return $this;
+    }
+
+    /**
+     * @param object $object
+     * @param Collection $collection
+     * @return mixed
+     */
+    private function getProperty(object $object, Collection $collection)
+    {
+        $property = $collection->shift();
+
+        if ($collection->count()) {
+            return $this->getProperty($object->{$property}, $collection);
+        }
+
+        return $object->{$property};
     }
 
     /**
@@ -86,14 +120,13 @@ class VariableParser
     private function variablesFromContent(): self
     {
         $regExp = '\\' . join('\\', str_split($this->signOpen()))
-            . '([a-zA-z\.]{1,})'
+            . '([a-zA-z0-9\.]{1,})'
             . '\\' . join('\\', str_split($this->signClose()));
 
         preg_match_all("/$regExp/", $this->content(), $matches);
 
         $this->search = $matches[0];
         $this->variables = $matches[1];
-
         return $this;
     }
 
@@ -126,7 +159,14 @@ class VariableParser
      */
     private function replaceVariables(): self
     {
-        $this->setContent(str_replace($this->search, array_values($this->variables), $this->content()));
+        $content = $this->content();
+
+        foreach ($this->variables as $key => $variable) {
+            $content = str_replace($this->signOpen() . $key . $this->signClose(), $variable, $content);
+        }
+
+        $this->setContent($content);
+
         return $this;
     }
 
@@ -242,6 +282,16 @@ class VariableParser
     public function setPreview(bool $preview): self
     {
         $this->preview = $preview;
+        return $this;
+    }
+
+    /**
+     * @param object|array|null $variableData
+     * @return self
+     */
+    public function setVariableData($variableData): self
+    {
+        $this->variableData = $variableData;
         return $this;
     }
 }
