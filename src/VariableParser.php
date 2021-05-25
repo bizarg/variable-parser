@@ -63,6 +63,34 @@ class VariableParser
     }
 
     /**
+     * @return string|null
+     */
+    public function parseContent(): ?string
+    {
+        return $this->variablesFromContent()
+            ->prepareVariables()
+            ->mergeVariableWithData()
+            ->replaceVariables()
+            ->content();
+    }
+
+    /**
+     * @return self
+     */
+    private function variablesFromContent(): self
+    {
+        $regExp = '\\' . join('\\', str_split($this->signOpen()))
+            . '([a-zA-z0-9\.]{1,})'
+            . '\\' . join('\\', str_split($this->signClose()));
+
+        preg_match_all("/$regExp/", $this->content(), $matches);
+
+        $this->search = $matches[0];
+        $this->variables = $matches[1];
+        return $this;
+    }
+
+    /**
      * @return self
      */
     private function prepareVariables(): self
@@ -92,9 +120,40 @@ class VariableParser
                 }
             }
 
+            if (!isset($this->variables[$value])) {
+                $this->variables[$value] = '';
+            }
+
             unset($this->variables[$key]);
         }
 
+        return $this;
+    }
+
+    /**
+     * @return self
+     */
+    private function mergeVariableWithData(): self
+    {
+        $this->variables = array_merge($this->variables, $this->data);
+        $this->search = array_merge(
+            $this->search,
+            array_map(
+                function ($item) {
+                    return $this->signOpen() . $item . $this->signClose();
+                },
+                array_keys($this->data))
+        );
+
+        return $this;
+    }
+
+    /**
+     * @return self
+     */
+    private function replaceVariables(): self
+    {
+        $this->setContent(strtr($this->content(), array_combine($this->search(), $this->variables())));
         return $this;
     }
 
@@ -115,34 +174,6 @@ class VariableParser
     }
 
     /**
-     * @return self
-     */
-    private function variablesFromContent(): self
-    {
-        $regExp = '\\' . join('\\', str_split($this->signOpen()))
-            . '([a-zA-z0-9\.]{1,})'
-            . '\\' . join('\\', str_split($this->signClose()));
-
-        preg_match_all("/$regExp/", $this->content(), $matches);
-
-        $this->search = $matches[0];
-        $this->variables = $matches[1];
-        return $this;
-    }
-
-    /**
-     * @return string|null
-     */
-    public function parseContent(): ?string
-    {
-        return $this->variablesFromContent()
-            ->prepareVariables()
-            ->mergeVariableWithData()
-            ->replaceVariables()
-            ->content();
-    }
-
-    /**
      * @param string $name
      * @return VariableInterface|null
      */
@@ -155,27 +186,20 @@ class VariableParser
     }
 
     /**
-     * @return self
+     * @return string|null
      */
-    private function replaceVariables(): self
+    public function content(): ?string
     {
-        $content = $this->content();
-
-        foreach ($this->variables as $key => $variable) {
-            $content = str_replace($this->signOpen() . $key . $this->signClose(), $variable, $content);
-        }
-
-        $this->setContent($content);
-
-        return $this;
+        return $this->content;
     }
 
     /**
+     * @param string|null $content
      * @return self
      */
-    private function mergeVariableWithData(): self
+    public function setContent(?string $content): self
     {
-        $this->variables = array_merge($this->variables, $this->data);
+        $this->content = $content;
         return $this;
     }
 
@@ -246,24 +270,6 @@ class VariableParser
     public function setData(array $data): self
     {
         $this->data = $data;
-        return $this;
-    }
-
-    /**
-     * @return string|null
-     */
-    public function content(): ?string
-    {
-        return $this->content;
-    }
-
-    /**
-     * @param string|null $content
-     * @return self
-     */
-    public function setContent(?string $content): self
-    {
-        $this->content = $content;
         return $this;
     }
 
