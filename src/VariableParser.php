@@ -106,7 +106,7 @@ class VariableParser
                 },
                 array_keys($this->data))
         )));
-        dd($this->variables, $this->search);
+
         return $this;
     }
 
