@@ -33,18 +33,35 @@ class VariableParser
             ->mergeVariableWithData()
             ->replaceVariables()
             ->content();
+
     }
 
     private function variablesFromContent(): self
     {
-        $regExp = '\\' . join('\\', str_split($this->signOpen()))
-            . '([a-zA-z0-9\.]{1,})'
-            . '\\' . join('\\', str_split($this->signClose()));
-
-        preg_match_all("/$regExp/", $this->content(), $matches);
+        preg_match_all("/{$this->getExpression()}/", $this->content(), $matches);
 
         $this->search = $matches[0];
         $this->variables = $matches[1];
+
+        if (count($this->data)) {
+            $this->data = array_map(function ($item) {
+                preg_match_all("/{$this->getExpression()}/", $item, $m);
+
+                if (count(array_filter($m))) {
+                    $parser = clone $this;
+                    $parser->data = array_filter($this->data, function ($i) use ($item) {
+                        return $item !== $i;
+                    });
+
+                    $parser->setContent($item);
+                    $parser->search = array_merge($parser->search, $m[0]);
+
+                    return $parser->parseContent();
+                }
+
+                return $item;
+            }, $this->data);
+        }
 
         return $this;
     }
@@ -65,10 +82,6 @@ class VariableParser
 
                 if (is_object($field)) {
                     $this->variables[$value] = $this->getProperty($field, $collection);
-                }
-
-                if (is_string($field)) {
-                    $this->variables[$value] = $field;
                 }
             }
 
@@ -208,5 +221,12 @@ class VariableParser
     {
         $this->variableData = $variableData;
         return $this;
+    }
+
+    public function getExpression(): string
+    {
+        return '\\' . join('\\', str_split($this->signOpen()))
+            . '([a-zA-z0-9\.]{1,})'
+            . '\\' . join('\\', str_split($this->signClose()));
     }
 }
